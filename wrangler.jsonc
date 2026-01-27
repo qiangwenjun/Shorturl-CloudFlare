@@ -19,10 +19,10 @@
 			"invocation_logs": true
 		}
 	},
-	"upload_source_maps": true,
 	"assets": {
+		"binding": "ASSETS",
 		"directory": "./dist/client",
-		"not_found_handling": "single-page-application"
+		"run_worker_first": true
 	},
 	"d1_databases": [
 		{
