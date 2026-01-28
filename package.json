@@ -18,7 +18,8 @@
 		"hono": "^4.11.6",
 		"react": "19.2.1",
 		"react-dom": "19.2.1",
-		"tailwindcss": "^4.1.18"
+		"tailwindcss": "^4.1.18",
+		"ua-parser-js": "^2.0.8"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "1.15.3",

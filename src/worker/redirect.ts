@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { UAParser } from 'ua-parser-js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -29,9 +30,38 @@ interface VisitEventData {
     country: string | null;
     region: string | null;
     city: string | null;
+    device_type: string | null;
+    os: string | null;
+    browser: string | null;
     is_blocked: number;
     block_reason: string | null;
     http_status: number;
+}
+
+// 解析 User-Agent
+function parseUserAgent(ua: string | null): { device_type: string; os: string; browser: string } {
+    if (!ua) {
+        return { device_type: "unknown", os: "unknown", browser: "unknown" };
+    }
+
+    const parser = new UAParser(ua);
+    const result = parser.getResult();
+
+    // 设备类型
+    const device_type = result.device.type || "unknown"; // 默认桌面
+
+
+    // 操作系统
+    const os = result.os.name
+        ? `${result.os.name}${result.os.version ? " " + result.os.version : ""}`
+        : "unknown";
+
+    // 浏览器
+    const browser = result.browser.name
+        ? `${result.browser.name}${result.browser.version ? " " + result.browser.version : ""}`
+        : "unknown";
+
+    return { device_type, os, browser };
 }
 
 // 记录访问事件
@@ -39,8 +69,8 @@ async function recordVisitEvent(db: D1Database, event: VisitEventData) {
     await db
         .prepare(`
             INSERT INTO link_visit_events 
-            (short_link_id, domain_id, code, visited_at, ip, ua, referer, country, region, city, is_blocked, block_reason, http_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (short_link_id, domain_id, code, visited_at, ip, ua, referer, country, region, city, device_type, os, browser, is_blocked, block_reason, http_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .bind(
             event.short_link_id,
@@ -53,6 +83,9 @@ async function recordVisitEvent(db: D1Database, event: VisitEventData) {
             event.country,
             event.region,
             event.city,
+            event.device_type,
+            event.os,
+            event.browser,
             event.is_blocked,
             event.block_reason,
             event.http_status
@@ -77,6 +110,9 @@ app.get("/:code", async (c) => {
     const country = String(cfData?.country || "");
     const region = String(cfData?.region || "");
     const city = String(cfData?.city || "");
+
+    // 解析 User-Agent 获取设备信息
+    const { device_type, os, browser } = parseUserAgent(ua);
 
     // 查询短链接（需要同时匹配域名和短码）
     const result = await c.env.shorturl
@@ -108,6 +144,9 @@ app.get("/:code", async (c) => {
         country,
         region,
         city,
+        device_type,
+        os,
+        browser,
         is_blocked: 0,
         block_reason: null,
         http_status: result.redirect_http_code,
