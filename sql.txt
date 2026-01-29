@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS redirect_templates (
   id              INTEGER PRIMARY KEY AUTOINCREMENT, -- UUID
   name            TEXT NOT NULL,                     -- 模板名
   html_content    TEXT NOT NULL,                     -- 完整 HTML
+  asset_prefix    TEXT,                              -- 资源路径前缀（随机字符串，如 "a3f8x9k2"），用于隔离和防枚举
   is_active       INTEGER NOT NULL DEFAULT 1,        -- 1启用，0禁用
   type            INTEGER,                           -- 0普通模板，1要求密码，2错误页，3未找到短连接
   created_by      INTEGER,                           -- user_id（不建外键）
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS redirect_templates (
 
 CREATE INDEX IF NOT EXISTS idx_redirect_templates_active ON redirect_templates(is_active);
 CREATE INDEX IF NOT EXISTS idx_redirect_templates_created_by ON redirect_templates(created_by);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_redirect_templates_asset_prefix ON redirect_templates(asset_prefix);
 CREATE TABLE IF NOT EXISTS short_links (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT, -- UUID
   domain_id          INTEGER NOT NULL,                  -- domains.id（无外键）
