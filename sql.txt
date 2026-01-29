@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS domains (
   is_active       INTEGER NOT NULL DEFAULT 0,    -- 0=启用 1=停用
   is_default      INTEGER NOT NULL DEFAULT 0,    -- 1=默认域名
   notes           TEXT,
+  
+  -- 域名级别的模板设置（NULL 则使用系统默认）
+  error_template_id       INTEGER,               -- 错误页模板 redirect_templates.id
+  password_template_id    INTEGER,               -- 密码验证页模板 redirect_templates.id
+  interstitial_template_id INTEGER,              -- 中间页模板 redirect_templates.id
+  
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL
 );
@@ -42,11 +48,15 @@ CREATE TABLE IF NOT EXISTS domains (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_domains_host ON domains(host);
 CREATE INDEX IF NOT EXISTS idx_domains_active ON domains(is_active);
 CREATE INDEX IF NOT EXISTS idx_domains_default ON domains(is_default);
+CREATE INDEX IF NOT EXISTS idx_domains_error_tpl ON domains(error_template_id);
+CREATE INDEX IF NOT EXISTS idx_domains_password_tpl ON domains(password_template_id);
+CREATE INDEX IF NOT EXISTS idx_domains_interstitial_tpl ON domains(interstitial_template_id);
 CREATE TABLE IF NOT EXISTS redirect_templates (
   id              INTEGER PRIMARY KEY AUTOINCREMENT, -- UUID
   name            TEXT NOT NULL,                     -- 模板名
   html_content    TEXT NOT NULL,                     -- 完整 HTML
   is_active       INTEGER NOT NULL DEFAULT 1,        -- 1启用，0禁用
+  type            INTEGER,                           -- 0普通模板，1要求密码，2错误页，3未找到短连接
   created_by      INTEGER,                           -- user_id（不建外键）
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL
@@ -63,7 +73,11 @@ CREATE TABLE IF NOT EXISTS short_links (
 
   redirect_http_code INTEGER NOT NULL DEFAULT 302,      -- 301/302/307/308 等
   use_interstitial   INTEGER NOT NULL DEFAULT 0,        -- 是否中转页
-  template_id        INTEGER,                           -- redirect_templates.id（无外键）
+  template_id        INTEGER,                           -- 中间页模板 redirect_templates.id（无外键）
+
+  -- 短链接级别的模板设置（NULL 则继承域名设置，域名也为 NULL 则使用系统默认）
+  error_template_id    INTEGER,                         -- 错误页模板 redirect_templates.id
+  password_template_id INTEGER,                         -- 密码验证页模板 redirect_templates.id
 
   password_hash     TEXT,                             -- 若启用密码访问则存 hash
   max_visits        INTEGER,                          -- 访问次数限制；NULL=无限
@@ -91,6 +105,8 @@ CREATE INDEX IF NOT EXISTS idx_short_links_deleted ON short_links(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_short_links_disabled ON short_links(is_disabled);
 CREATE INDEX IF NOT EXISTS idx_short_links_expire_at ON short_links(expire_at);
 CREATE INDEX IF NOT EXISTS idx_short_links_template ON short_links(template_id);
+CREATE INDEX IF NOT EXISTS idx_short_links_error_tpl ON short_links(error_template_id);
+CREATE INDEX IF NOT EXISTS idx_short_links_password_tpl ON short_links(password_template_id);
 CREATE INDEX IF NOT EXISTS idx_short_links_last_access ON short_links(last_access_at);
 CREATE TABLE IF NOT EXISTS tags (
   id            INTEGER PRIMARY KEY AUTOINCREMENT, -- UUID
