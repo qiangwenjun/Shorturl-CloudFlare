@@ -40,6 +40,99 @@ interface VisitEventData {
     http_status: number;
 }
 
+// 模板接口
+interface RedirectTemplate {
+    content_type: number;
+    html_content: string | null;
+    main_file: string | null;
+    asset_prefix: string | null;
+}
+
+// 获取模板内容的辅助函数
+async function getTemplateContent(
+    db: D1Database,
+    templateId: number,
+    replacements?: Record<string, string>,
+    r2Bucket?: R2Bucket
+): Promise<{ html: string } | null> {
+    const template = await db
+        .prepare(`
+            SELECT content_type, html_content, main_file, asset_prefix 
+            FROM redirect_templates 
+            WHERE id = ? AND is_active = 1
+        `)
+        .bind(templateId)
+        .first<RedirectTemplate>();
+
+    if (!template) {
+        return null;
+    }
+
+    let html: string;
+
+    if (template.content_type === 0) {
+        // 使用 HTML 内容
+        if (!template.html_content) {
+            return null;
+        }
+        html = template.html_content;
+    } else if (template.content_type === 1) {
+        // 使用文件
+        if (!template.main_file || !template.asset_prefix) {
+            return null;
+        }
+
+        // 从 template_assets 获取主文件内容
+        const asset = await db
+            .prepare(`
+                SELECT storage_type, content, r2_key
+                FROM template_assets
+                WHERE asset_prefix = ? AND filename = ?
+            `)
+            .bind(template.asset_prefix, template.main_file)
+            .first<{
+                storage_type: number;
+                content: ArrayBuffer | null;
+                r2_key: string | null;
+            }>();
+
+        if (!asset) {
+            return null;
+        }
+
+        if (asset.storage_type === 0) {
+            // 数据库存储
+            if (!asset.content) {
+                return null;
+            }
+            html = new TextDecoder().decode(asset.content);
+        } else if (asset.storage_type === 1) {
+            // R2 存储
+            if (!asset.r2_key || !r2Bucket) {
+                return null;
+            }
+            const object = await r2Bucket.get(asset.r2_key);
+            if (!object) {
+                return null;
+            }
+            html = await object.text();
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+
+    // 应用替换
+    if (replacements) {
+        for (const [key, value] of Object.entries(replacements)) {
+            html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+        }
+    }
+
+    return { html };
+}
+
 // 解析 User-Agent
 function parseUserAgent(ua: string | null): { device_type: string; os: string; browser: string } {
     if (!ua) {
@@ -184,14 +277,15 @@ app.get("/:code", async (c) => {
             );
 
             if (passwordTemplateId) {
-                const template = await c.env.shorturl
-                    .prepare("SELECT html_content FROM redirect_templates WHERE id = ? AND is_active = 1")
-                    .bind(passwordTemplateId)
-                    .first<{ html_content: string }>();
+                const templateResult = await getTemplateContent(
+                    c.env.shorturl,
+                    passwordTemplateId,
+                    { "errorpassword": "true" },
+                    c.env.R2_BUCKET
+                );
 
-                if (template) {
-                    const html = template.html_content.replace(/\{\{errorpassword\}\}/g, "true");
-                    return c.html(html, 200);
+                if (templateResult) {
+                    return c.html(templateResult.html, 200);
                 }
             }
 
@@ -201,18 +295,18 @@ app.get("/:code", async (c) => {
         // 没传密码：返回输入页
         if (!password) {
             if (passwordTemplateId) {
-                const template = await c.env.shorturl
-                    .prepare("SELECT html_content FROM redirect_templates WHERE id = ? AND is_active = 1")
-                    .bind(passwordTemplateId)
-                    .first<{ html_content: string }>();
+                const templateResult = await getTemplateContent(
+                    c.env.shorturl,
+                    passwordTemplateId,
+                    { "errorpassword": "false" },
+                    c.env.R2_BUCKET
+                );
 
-                if (template) {
+                if (templateResult) {
                     c.executionCtx.waitUntil(
                         recordVisitEvent(c.env.shorturl, { ...baseEvent, is_blocked: 1, block_reason: "password", http_status: 401 })
                     );
-
-                    const html = template.html_content.replace(/\{\{errorpassword\}\}/g, "false");
-                    return c.html(html, 200);
+                    return c.html(templateResult.html, 200);
                 }
             }
 
@@ -240,14 +334,15 @@ app.get("/:code", async (c) => {
 
     // 如果使用中转页
     if (result.use_interstitial && result.template_id) {
-        const template = await c.env.shorturl
-            .prepare("SELECT html_content FROM redirect_templates WHERE id = ? AND is_active = 1")
-            .bind(result.template_id)
-            .first<{ html_content: string }>();
+        const templateResult = await getTemplateContent(
+            c.env.shorturl,
+            result.template_id,
+            { target_url: result.target_url },
+            c.env.R2_BUCKET
+        );
 
-        if (template) {
-            const html = template.html_content.replace(/\{\{target_url\}\}/g, result.target_url);
-            return c.html(html);
+        if (templateResult) {
+            return c.html(templateResult.html);
         }
     }
 
