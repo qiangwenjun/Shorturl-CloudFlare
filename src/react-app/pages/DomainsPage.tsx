@@ -90,53 +90,12 @@ export function DomainsPage() {
         setShowModal(true);
     };
 
-    // 验证域名格式（只允许根域名）
-    const validateRootDomain = (domain: string): { valid: boolean; error?: string } => {
-        const trimmed = domain.trim().toLowerCase();
-        
-        // 基本格式检查
-        if (!trimmed) {
-            return { valid: false, error: '域名不能为空' };
-        }
-        
-        // 域名正则：只允许根域名格式 (xxx.com, xxx.org 等)
-        // 不允许: .com, com, localhost, xxx.xxx.com
-        const rootDomainRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.([a-z]{2,}|[a-z]{2,}\.[a-z]{2,})$/i;
-        
-        if (!rootDomainRegex.test(trimmed)) {
-            return { valid: false, error: '请输入有效的根域名，例如: example.com' };
-        }
-        
-        // 检查是否包含子域名（超过一个点号的情况，但排除国家代码域名如 co.uk）
-        const parts = trimmed.split('.');
-        const knownTwoPartTLDs = ['co.uk', 'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'ac.uk', 'com.au'];
-        const lastTwoParts = parts.slice(-2).join('.');
-        
-        if (parts.length > 2 && !knownTwoPartTLDs.includes(lastTwoParts)) {
-            return { valid: false, error: '不允许使用子域名，请使用根域名，例如: example.com' };
-        }
-        
-        // 检查是否只是顶级域名
-        if (parts.length === 1) {
-            return { valid: false, error: '不允许只使用顶级域名，例如: com、org 等' };
-        }
-        
-        return { valid: true };
-    };
-
     // 提交表单
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.host.trim()) {
             showMessage('error', '请输入域名');
-            return;
-        }
-
-        // 验证域名格式
-        const validation = validateRootDomain(formData.host);
-        if (!validation.valid) {
-            showMessage('error', validation.error || '域名格式不正确');
             return;
         }
 
