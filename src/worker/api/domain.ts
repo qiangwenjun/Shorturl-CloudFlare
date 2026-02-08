@@ -143,7 +143,17 @@ app.post('/create', async (c) => {
         }
 
         const now = Math.floor(Date.now() / 1000);
-        const isDefault = body.is_default || 0;
+        
+        // 检查是否已有域名
+        const domainCount = await db.prepare(`
+            SELECT COUNT(*) as count FROM domains
+        `).first<{ count: number }>();
+        
+        // 如果是第一个域名，强制设为默认
+        let isDefault = body.is_default || 0;
+        if (domainCount && domainCount.count === 0) {
+            isDefault = 1;
+        }
 
         // 如果设置为默认域名，需要先取消其他默认域名
         if (isDefault === 1) {
@@ -225,6 +235,21 @@ app.put('/update/:id', async (c) => {
                 message: '域名不存在'
             };
             return c.json(response, 404);
+        }
+
+        // 如果尝试取消默认域名，需要检查是否有其他默认域名
+        if (body.is_default === 0 && existing.is_default === 1) {
+            const otherDefaultCount = await db.prepare(`
+                SELECT COUNT(*) as count FROM domains WHERE is_default = 1 AND id != ?
+            `).bind(id).first<{ count: number }>();
+            
+            if (!otherDefaultCount || otherDefaultCount.count === 0) {
+                const response: HttpResponseJsonBody = {
+                    code: ErrorCode.DATA_INPUT_ERROR,
+                    message: '系统中必须至少有一个默认域名，请先设置其他域名为默认'
+                };
+                return c.json(response, 400);
+            }
         }
 
         // 如果修改 host，检查新域名是否重复
