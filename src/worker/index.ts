@@ -5,6 +5,7 @@ import redirect from "./redirect";
 import assets from "./assets";
 import domain from "./api/domain";
 import user from "./api/user";
+import templateAssets from "./api/template-assets";
 const app = new Hono<{ Bindings: Env }>();
 app.use(authVerify)
 app.onError((err, c) => {
@@ -30,6 +31,7 @@ app.route('/assets/',assets);
 
 app.route('/api/domain/',domain)
 app.route('/api/user/',user)
+app.route('/api/template-assets/', templateAssets)
 
 app.route('/', redirect);
 

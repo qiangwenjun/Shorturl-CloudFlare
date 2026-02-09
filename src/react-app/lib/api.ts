@@ -161,6 +161,131 @@ export interface ChangePasswordRequest {
     newPassword: string;
 }
 
+// ==================== 模板资源相关类型 ====================
+
+export interface TemplateAssetListItem {
+    id: number;
+    asset_prefix: string;
+    filename: string;
+    content_type: string | null;
+    size: number | null;
+    checksum: string | null;
+    storage_type: number; // 0=数据库, 1=R2
+    r2_key: string | null;
+    is_public: number;
+    alt_text: string | null;
+    created_at: number;
+    updated_at: number | null;
+}
+
+export interface TreeNode {
+    name: string;
+    type: "folder" | "file";
+    path: string;
+    children?: TreeNode[];
+    asset?: TemplateAssetListItem;
+}
+
+export interface TreeResponse {
+    prefix: string;
+    tree: TreeNode[];
+    total: number;
+}
+
+export interface PrefixInfo {
+    asset_prefix: string;
+    file_count: number;
+    total_size: number | null;
+}
+
+// 模板资源 API 方法
+export const templateAssetsApi = {
+    // 获取所有 prefix 列表
+    getPrefixes: () =>
+        api.get<{ code: number; message: string; data: { prefixes: PrefixInfo[] } }>(
+            '/api/template-assets/prefixes'
+        ),
+
+    // 获取树结构
+    getTree: (prefix: string) =>
+        api.get<{ code: number; message: string; data: TreeResponse }>(
+            `/api/template-assets/tree?prefix=${encodeURIComponent(prefix)}`
+        ),
+
+    // 下载文件 — 返回 blob
+    download: (id: number) =>
+        api.get<Blob>(`/api/template-assets/download/${id}`, { responseType: 'blob' as never }),
+
+    // 删除单个资源
+    delete: (id: number) =>
+        api.delete<{ code: number; message: string }>(`/api/template-assets/delete/${id}`),
+
+    // 删除整个 prefix 下的所有资源
+    deleteByPrefix: (prefix: string) =>
+        api.delete<{ code: number; message: string }>('/api/template-assets/delete-by-prefix', {
+            data: { prefix },
+        }),
+
+    // 上传到数据库（< 2MB）
+    uploadToDb: (file: File, prefix: string, filename: string, isPublic: number = 0) => {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('prefix', prefix);
+        form.append('filename', filename);
+        form.append('is_public', String(isPublic));
+        return api.post<{ code: number; message: string; data: TemplateAssetListItem }>(
+            '/api/template-assets/upload/db',
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+    },
+
+    // 上传到 R2（< 50MB 单次上传）
+    uploadToR2: (file: File, prefix: string, filename: string, isPublic: number = 0) => {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('prefix', prefix);
+        form.append('filename', filename);
+        form.append('is_public', String(isPublic));
+        return api.post<{ code: number; message: string; data: TemplateAssetListItem }>(
+            '/api/template-assets/upload/r2',
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+    },
+
+    // 分片上传 — 创建会话
+    multipartCreate: (prefix: string, filename: string, contentType?: string) =>
+        api.post<{ code: number; message: string; data: { uploadId: string; r2Key: string } }>(
+            '/api/template-assets/upload/r2/multipart/create',
+            { prefix, filename, content_type: contentType }
+        ),
+
+    // 分片上传 — 上传分片
+    multipartUploadPart: (r2Key: string, uploadId: string, partNumber: number, data: ArrayBuffer) =>
+        api.post<{ code: number; message: string; data: { partNumber: number; etag: string } }>(
+            `/api/template-assets/upload/r2/multipart/part?r2Key=${encodeURIComponent(r2Key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
+            data,
+            { headers: { 'Content-Type': 'application/octet-stream' } }
+        ),
+
+    // 分片上传 — 完成
+    multipartComplete: (body: {
+        prefix: string;
+        filename: string;
+        r2Key: string;
+        uploadId: string;
+        parts: { partNumber: number; etag: string }[];
+        size: number;
+        content_type?: string;
+        is_public?: number;
+    }) =>
+        api.post<{ code: number; message: string; data: TemplateAssetListItem }>(
+            '/api/template-assets/upload/r2/multipart/complete',
+            body
+        ),
+};
+
 // 用户 API 方法
 export const userApi = {
     // 获取用户列表

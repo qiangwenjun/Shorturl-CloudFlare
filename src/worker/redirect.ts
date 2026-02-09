@@ -109,7 +109,7 @@ async function getTemplateContent(
             if (!asset.content) {
                 return null;
             }
-            html = new TextDecoder().decode(asset.content);
+            html = new TextDecoder().decode(new Uint8Array(asset.content));
         } else if (asset.storage_type === 1) {
             // R2 存储
             if (!asset.r2_key || !r2Bucket) {

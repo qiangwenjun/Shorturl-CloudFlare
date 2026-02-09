@@ -46,10 +46,11 @@ app.get("/:prefix/*", async (c) => {
     if (!asset.content) {
       return c.notFound();
     }
-    return new Response(asset.content, {
+    const buffer = new Uint8Array(asset.content);
+    return new Response(buffer, {
       headers: {
         "Content-Type": contentType,
-        "Content-Length": String(asset.content.byteLength),
+        "Content-Length": String(buffer.byteLength),
         "Cache-Control": "public, max-age=86400",
       },
     });
