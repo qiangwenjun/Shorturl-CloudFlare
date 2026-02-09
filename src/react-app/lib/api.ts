@@ -340,5 +340,96 @@ export const userApi = {
             data
         ),
 };
+export interface RedirectTemplate {
+    id: number;
+    name: string;
+    content_type: number;       // 0=HTML content, 1=文件
+    html_content: string | null;
+    main_file: string | null;
+    asset_prefix: string | null;
+    is_active: number;
+    type: number | null;        // 0=普通模板, 1=密码页, 2=错误页, 3=未找到页
+    created_by: number | null;
+    created_at: number;
+    updated_at: number | null;
+}
+
+export type RedirectTemplateListItem = Omit<RedirectTemplate, "html_content">;
+
+export interface TemplateListResponse {
+    results: RedirectTemplateListItem[];
+    pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
+export interface CreateTemplateRequest {
+    name: string;
+    content_type?: number;
+    html_content?: string;
+    main_file?: string;
+    asset_prefix?: string;
+    is_active?: number;
+    type?: number;
+}
+
+export interface UpdateTemplateRequest {
+    name?: string;
+    content_type?: number;
+    html_content?: string | null;
+    main_file?: string | null;
+    asset_prefix?: string | null;
+    is_active?: number;
+    type?: number | null;
+}
+
+// 模板 API 方法
+export const templateApi = {
+    // 获取模板列表
+    getList: (page: number = 1, pageSize: number = 10, params?: { name?: string; type?: string; is_active?: string }) => {
+        const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+        if (params?.name) query.set("name", params.name);
+        if (params?.type !== undefined && params.type !== "") query.set("type", params.type);
+        if (params?.is_active !== undefined && params.is_active !== "") query.set("is_active", params.is_active);
+        return api.get<{ code: number; message: string; data: TemplateListResponse }>(
+            `/api/template/list?${query.toString()}`
+        );
+    },
+
+    // 获取模板详情
+    getDetail: (id: number) =>
+        api.get<{ code: number; message: string; data: RedirectTemplate }>(
+            `/api/template/detail/${id}`
+        ),
+
+    // 创建模板
+    create: (data: CreateTemplateRequest) =>
+        api.post<{ code: number; message: string; data?: RedirectTemplate }>(
+            '/api/template/create',
+            data
+        ),
+
+    // 更新模板
+    update: (id: number, data: UpdateTemplateRequest) =>
+        api.put<{ code: number; message: string; data?: RedirectTemplate }>(
+            `/api/template/update/${id}`,
+            data
+        ),
+
+    // 删除模板
+    delete: (id: number) =>
+        api.delete<{ code: number; message: string }>(
+            `/api/template/delete/${id}`
+        ),
+
+    // 切换启用/禁用
+    toggleActive: (id: number) =>
+        api.post<{ code: number; message: string; data?: { is_active: number } }>(
+            `/api/template/toggle-active/${id}`
+        ),
+};
 
 export default api;
