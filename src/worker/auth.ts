@@ -30,17 +30,7 @@ app.post('/init', async (c) => {
     }
 
     const db = c.env.shorturl
-    const usersTable = await db.prepare(`
-        SELECT name FROM sqlite_master WHERE type='table' AND name='users'
-    `).first()
 
-    const domainsTable = await db.prepare(`
-        SELECT name FROM sqlite_master WHERE type='table' AND name='domains'
-    `).first()
-    if (usersTable || domainsTable) {
-        const response: HttpResponseJsonBody = { data: null, message: 'database already initialized', code: ErrorCode.DATA_INPUT_ERROR }
-        return c.json(response, 404)
-    }
 
     const now = Math.floor(Date.now() / 1000)
     const { hashSync } = await import('bcryptjs')
