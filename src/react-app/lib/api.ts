@@ -6,7 +6,21 @@ const api = axios.create({
         "Content-Type": "application/json",
     },
 });
+// 初始化相关 API
+export const authApi = {
+    // 检查初始化状态
+    getInitStatus: () =>
+        api.get<{ code: number; message: string; data: { initialized: boolean } }>(
+            '/api/auth/init-status'
+        ),
 
+    // 执行初始化
+    init: (data: { username: string; password: string }) =>
+        api.post<{ code: number; message: string }>(
+            '/api/auth/init',
+            data
+        ),
+};
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem("auth_token") || "";
     if (token && config.url?.startsWith("/api/")) {
@@ -580,4 +594,6 @@ export const shortLinkApi = {
             `/api/shortlink/toggle-status/${id}`
         ),
 };
+
+
 export default api;

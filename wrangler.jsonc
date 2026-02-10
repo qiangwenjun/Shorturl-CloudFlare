@@ -13,7 +13,7 @@
 		"nodejs_compat"
 	],
 	"vars": {
-		"JWT_SECRET": "12345"
+		"JWT_SECRET": "1234567890Aa.."
 	},
 	"observability": {
 		"logs": {
@@ -30,7 +30,7 @@
 		{
 			"binding": "shorturl",
 			"database_name": "shorturl",
-			"database_id": "2c5db6f7-8014-4be5-92f9-3019fa61dd78"
+			"database_id": "4df9db99-ae6c-474f-8b67-25e1e5c218fe"
 		}
 	],
 	"r2_buckets": [

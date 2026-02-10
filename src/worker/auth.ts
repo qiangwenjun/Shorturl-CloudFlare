@@ -14,7 +14,17 @@ interface InitRequest {
     username: string
     password: string
 }
-
+app.get('/init-status', async (c) => {
+    const db = c.env.shorturl
+    const existingUser = await db.prepare('SELECT id FROM users WHERE id = 1 LIMIT 1').first<{ id: number }>()
+    const initialized = !!existingUser
+    const response: HttpResponseJsonBody<{ initialized: boolean }> = {
+        data: { initialized },
+        message: initialized ? 'already initialized' : 'not initialized',
+        code: ErrorCode.SUCCESS
+    }
+    return c.json(response)
+})
 app.post('/init', async (c) => {
     let initInfo: InitRequest
     try {
@@ -29,7 +39,30 @@ app.post('/init', async (c) => {
         return c.json(response, 400)
     }
 
+    // 校验 JWT_SECRET 复杂度
+    const jwtSecret = c.env.JWT_SECRET
+    if (
+        !jwtSecret ||
+        jwtSecret.length <= 10 ||
+        !/[a-z]/.test(jwtSecret) ||
+        !/[A-Z]/.test(jwtSecret) ||
+        !/[0-9]/.test(jwtSecret) ||
+        !/[^a-zA-Z0-9]/.test(jwtSecret)
+    ) {
+        const response: HttpResponseJsonBody = {
+            data: null,
+            message: 'JWT_SECRET is not secure enough: must be longer than 10 characters and contain uppercase, lowercase, digits, and special characters',
+            code: ErrorCode.DATA_INPUT_ERROR
+        }
+        return c.json(response, 400)
+    }
+
     const db = c.env.shorturl
+    const existingUser = await db.prepare('SELECT id FROM users WHERE id = 1 LIMIT 1').first<{ id: number }>()
+    if (existingUser) {
+        const response: HttpResponseJsonBody = { data: null, message: 'already initialized', code: ErrorCode.DATA_INPUT_ERROR }
+        return c.json(response, 400)
+    }
 
 
     const now = Math.floor(Date.now() / 1000)
@@ -173,7 +206,7 @@ app.post('/login', async (c) => {
 
 const authVerify = createMiddleware<{Variables: Variables ;Bindings:Env}>(async (c, next) => {
     const path = c.req.path
-    if (path === '/api/auth/login'|| path === '/api/auth/init' || !path.startsWith("/api/")) {
+    if (path === '/api/auth/login'|| path === '/api/auth/init'|| path === '/api/auth/init-status' || !path.startsWith("/api/")) {
         await next()
         return
     }

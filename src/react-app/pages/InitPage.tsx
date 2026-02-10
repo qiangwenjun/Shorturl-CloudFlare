@@ -1,47 +1,39 @@
-import { useEffect, useState } from "react";
+// src/react-app/pages/InitPage.tsx
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import api, { authApi } from "../lib/api";
+import { authApi } from "../lib/api";
 import axios from "axios";
 
-export function LoginPage() {
+export function InitPage() {
     const navigate = useNavigate();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const [checking, setChecking] = useState(true);
     const [error, setError] = useState("");
 
-    useEffect(() => {
-        authApi.getInitStatus()
-            .then((res) => {
-                if (!res.data?.data?.initialized) {
-                    navigate("/init", { replace: true });
-                }
-            })
-            .catch(() => {
-                // 检查失败时不阻止登录
-            })
-            .finally(() => setChecking(false));
-    }, [navigate]);
-
-    async function handleLogin() {
-        setLoading(true);
+    async function handleInit() {
         setError("");
 
+        if (!username.trim()) {
+            setError("请输入用户名");
+            return;
+        }
+        if (!password) {
+            setError("请输入密码");
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError("两次输入的密码不一致");
+            return;
+        }
+
+        setLoading(true);
         try {
-            const res = await api.post("/api/auth/login", { username, password });
-            const body = res.data;
-
-            const token = body?.data?.token;
-            if (!token) {
-                setError("登录失败：未收到 token");
-                return;
-            }
-
-            localStorage.setItem("auth_token", token);
-            navigate("/", { replace: true });
+            await authApi.init({ username: username.trim(), password });
+            navigate("/login", { replace: true });
         } catch (e) {
-            let msg = "登录失败";
+            let msg = "初始化失败";
             if (axios.isAxiosError(e)) {
                 msg = e.response?.data?.message || msg;
             }
@@ -51,38 +43,30 @@ export function LoginPage() {
         }
     }
 
-    if (checking) {
-        return (
-            <div className="min-h-screen grid place-items-center">
-                <span className="loading loading-spinner loading-lg text-primary" />
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen grid place-items-center p-6 bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20">
             <div className="card w-full max-w-md bg-base-100/80 backdrop-blur-md shadow-2xl border border-base-300">
                 <div className="card-body gap-5">
                     <div className="text-center space-y-1">
-                        <span className="text-4xl">🔐</span>
+                        <span className="text-4xl">🚀</span>
                         <h1 className="text-3xl font-extrabold tracking-tight">
-                            欢迎回来
+                            系统初始化
                         </h1>
                         <p className="text-sm text-base-content/60">
-                            请登录你的账号以继续
+                            首次使用，请设置管理员账号
                         </p>
                     </div>
 
                     <div className="divider my-0" />
 
                     <label className="form-control w-full">
-                        <span className="label-text font-medium mb-1">账号</span>
+                        <span className="label-text font-medium mb-1">管理员用户名</span>
                         <input
                             className="input input-bordered input-lg w-full focus:input-primary transition-all"
-                            placeholder="请输入账号"
+                            placeholder="请输入用户名"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                            onKeyDown={(e) => e.key === "Enter" && handleInit()}
                         />
                     </label>
 
@@ -94,7 +78,19 @@ export function LoginPage() {
                             placeholder="请输入密码"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                            onKeyDown={(e) => e.key === "Enter" && handleInit()}
+                        />
+                    </label>
+
+                    <label className="form-control w-full">
+                        <span className="label-text font-medium mb-1">确认密码</span>
+                        <input
+                            type="password"
+                            className="input input-bordered input-lg w-full focus:input-primary transition-all"
+                            placeholder="请再次输入密码"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleInit()}
                         />
                     </label>
 
@@ -109,16 +105,16 @@ export function LoginPage() {
 
                     <button
                         className="btn btn-primary btn-lg w-full mt-2 text-base"
-                        onClick={handleLogin}
+                        onClick={handleInit}
                         disabled={loading}
                     >
                         {loading ? (
                             <>
                                 <span className="loading loading-spinner loading-sm" />
-                                登录中...
+                                初始化中...
                             </>
                         ) : (
-                            "登录"
+                            "确定初始化"
                         )}
                     </button>
                 </div>

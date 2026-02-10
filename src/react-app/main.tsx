@@ -12,6 +12,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { TemplateResourcesPage } from "./pages/TemplateResourcesPage";
 import {TemplatesPage} from "./pages/TemplatesPage.tsx";
 import {ShortLinksPage} from "./pages/ShortLinksPage.tsx";
+import {InitPage} from "./pages/InitPage.tsx";
 
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -28,6 +29,7 @@ createRoot(document.getElementById("root")!).render(
 		<BrowserRouter basename={BASE_URL}>
 			<Routes>
 				<Route path="/login" element={<LoginPage />} />
+				<Route path="/init" element={<InitPage />} />
 				<Route element={<AuthGuard />}>
 					<Route element={<AdminLayout />}>
 						<Route path="/" element={<HomePage />} />
