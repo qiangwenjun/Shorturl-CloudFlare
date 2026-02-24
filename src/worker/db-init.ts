@@ -185,19 +185,21 @@ const TEMPLATE_DATA = [
 ];
 
 export async function initializeDatabase(db: D1Database): Promise<void> {
-	const existingTables = await db.prepare(
-		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1"
-	).first<{ name: string }>();
-
-	if (existingTables) {
+	try {
+		await db.prepare("SELECT 1 FROM users LIMIT 1").first();
 		console.log('Database already initialized');
 		return;
+	} catch (error: any) {
+		if (!error.message?.includes('no such table')) {
+			console.error('Unexpected error checking database:', error);
+			return;
+		}
 	}
-
+	
 	console.log('Initializing database...');
-
+	
 	const statements = SQL_INIT.split(';').filter(s => s.trim().length > 0);
-
+	
 	for (const statement of statements) {
 		try {
 			await db.prepare(statement).run();
@@ -205,9 +207,9 @@ export async function initializeDatabase(db: D1Database): Promise<void> {
 			console.error('Failed to execute statement:', statement, error);
 		}
 	}
-
+	
 	const now = Math.floor(Date.now() / 1000);
-
+	
 	for (const template of TEMPLATE_DATA) {
 		try {
 			await db.prepare(
@@ -217,6 +219,6 @@ export async function initializeDatabase(db: D1Database): Promise<void> {
 			console.error('Failed to insert template:', template.name, error);
 		}
 	}
-
+	
 	console.log('Database initialized successfully');
 }
