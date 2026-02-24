@@ -1,4 +1,24 @@
-const SQL_INIT = `
+let initialized = false;
+
+export async function ensureDatabaseInitialized(db: D1Database): Promise<void> {
+	if (initialized) {
+		return;
+	}
+
+	try {
+		await db.prepare("SELECT 1 FROM users LIMIT 1").first();
+		initialized = true;
+		return;
+	} catch (error: any) {
+		if (!error.message?.includes('no such table')) {
+			console.error('Unexpected database error:', error);
+			return;
+		}
+	}
+
+	console.log('Database not initialized, initializing...');
+
+	const SQL_INIT = `
 CREATE TABLE IF NOT EXISTS users (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   email           TEXT,
@@ -175,70 +195,39 @@ CREATE INDEX IF NOT EXISTS idx_template_assets_storage_type ON template_assets(s
 CREATE INDEX IF NOT EXISTS idx_template_assets_public ON template_assets(is_public);
 `;
 
-const TEMPLATE_DATA = [
-	{ id: 1, name: 'error', type: 0 },
-	{ id: 2, name: 'password', type: 1 },
-	{ id: 3, name: 'middle', type: 2 },
-	{ id: 4, name: 'error-cn', type: 2 },
-	{ id: 5, name: 'password-cn', type: 1 },
-	{ id: 6, name: 'middle-cn', type: 2 }
-];
-
-export async function initializeDatabase(db: D1Database): Promise<void> {
-	try {
-		await db.prepare("SELECT 1 FROM users LIMIT 1").first();
-		console.log('Database already initialized');
-		return;
-	} catch (error: any) {
-		if (!error.message?.includes('no such table')) {
-			console.error('Unexpected error checking database:', error);
-			return;
-		}
-	}
-
-	console.log('Initializing database...');
-
 	const statements = SQL_INIT.split(';').filter(s => s.trim().length > 0);
-	let successCount = 0;
-	let failCount = 0;
 
 	for (const statement of statements) {
 		try {
 			await db.prepare(statement).run();
-			successCount++;
 		} catch (error) {
-			console.error('Failed to execute statement:', statement, error);
-			failCount++;
+			console.error('Failed to execute SQL:', statement.substring(0, 50) + '...', error);
 			throw error;
 		}
 	}
 
-	console.log(`Database schema created: ${successCount} statements executed, ${failCount} failed`);
-
 	const now = Math.floor(Date.now() / 1000);
-	let templateSuccessCount = 0;
+
+	const TEMPLATE_DATA = [
+		{ id: 1, name: 'error', type: 0 },
+		{ id: 2, name: 'password', type: 1 },
+		{ id: 3, name: 'middle', type: 2 },
+		{ id: 4, name: 'error-cn', type: 2 },
+		{ id: 5, name: 'password-cn', type: 1 },
+		{ id: 6, name: 'middle-cn', type: 2 }
+	];
 
 	for (const template of TEMPLATE_DATA) {
 		try {
 			await db.prepare(
 				`INSERT INTO redirect_templates (id, name, content_type, type, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
 			).bind(template.id, template.name, 0, template.type, 1, now, now).run();
-			templateSuccessCount++;
 		} catch (error) {
 			console.error('Failed to insert template:', template.name, error);
 			throw error;
 		}
 	}
 
-	console.log(`Default templates inserted: ${templateSuccessCount}/${TEMPLATE_DATA.length}`);
+	initialized = true;
 	console.log('Database initialized successfully');
-
-	try {
-		const testTables = await db.prepare(
-			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-		).all<{ name: string }>();
-		console.log('Tables in database:', testTables.results.map(t => t.name));
-	} catch (error) {
-		console.error('Failed to list tables:', error);
-	}
 }

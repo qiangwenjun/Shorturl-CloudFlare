@@ -8,20 +8,13 @@ import user from "./api/user";
 import templateAssets from "./api/template-assets";
 import template from "./api/template";
 import shortlink from "./api/shortlink";
-import { initializeDatabase } from "./db-init";
+import { ensureDatabaseInitialized } from "./db-init";
 
 const app = new Hono<{ Bindings: Env }>();
 
-let dbInitialized = false;
-
 app.use(async (c, next) => {
-	if (!dbInitialized && c.env.shorturl) {
-		try {
-			await initializeDatabase(c.env.shorturl);
-			dbInitialized = true;
-		} catch (error) {
-			console.error('Database initialization failed:', error);
-		}
+	if (c.env.shorturl) {
+		await ensureDatabaseInitialized(c.env.shorturl);
 	}
 	await next();
 });
