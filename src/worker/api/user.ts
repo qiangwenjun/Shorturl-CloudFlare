@@ -157,10 +157,10 @@ app.post('/create', async (c) => {
         }
 
         const now = Math.floor(Date.now() / 1000);
-        
+
         // 密码哈希
-        const { hashSync } = await import('bcryptjs');
-        const passwordHash = hashSync(body.password, 10);
+        const { hash } = await import('@phc/bcrypt');
+        const passwordHash = await hash(body.password, { rounds: 10 });
 
         // 插入新用户
         const result = await db.prepare(`
@@ -280,8 +280,8 @@ app.put('/update/:id', async (c) => {
         }
         if (body.password) {
             updates.push('password_hash = ?');
-            const { hashSync } = await import('bcryptjs');
-            const passwordHash = hashSync(body.password, 10);
+            const { hash } = await import('@phc/bcrypt');
+            const passwordHash = await hash(body.password, { rounds: 10 });
             params.push(passwordHash);
         }
         if (body.role !== undefined) {
@@ -602,11 +602,11 @@ app.put('/me/password', async (c) => {
         }
 
         // 验证旧密码
-        const { compareSync } = await import('bcryptjs');
+        const { verify } = await import('@phc/bcrypt');
         const passwordHash = user.password_hash ?? '';
         let passwordCorrect = false;
         try {
-            passwordCorrect = compareSync(body.oldPassword, passwordHash);
+            passwordCorrect = await verify(passwordHash, body.oldPassword);
         } catch {
             passwordCorrect = false;
         }
@@ -620,8 +620,8 @@ app.put('/me/password', async (c) => {
         }
 
         // 生成新密码哈希
-        const { hashSync } = await import('bcryptjs');
-        const newPasswordHash = hashSync(body.newPassword, 10);
+        const { hash } = await import('@phc/bcrypt');
+        const newPasswordHash = await hash(body.newPassword, { rounds: 10 });
         const now = Math.floor(Date.now() / 1000);
 
         // 更新密码
