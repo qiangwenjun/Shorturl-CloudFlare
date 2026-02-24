@@ -67,26 +67,48 @@ app.post('/init', async (c) => {
 
 
     const now = Math.floor(Date.now() / 1000)
-    const passwordHash = await hashPassword(String(initInfo.password))
-    await db.prepare(`
-        INSERT INTO users (
-            email,
-            username,
-            password_hash,
-            role,
-            status,
-            created_at,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-        null,
-        String(initInfo.username).trim(),
-        passwordHash,
-        'admin',
-        0,
-        now,
-        now
-    ).run()
+    let passwordHash: string
+    try {
+        passwordHash = await hashPassword(String(initInfo.password))
+    } catch (e) {
+        console.error('Password hashing failed:', e)
+        const response: HttpResponseJsonBody = {
+            data: null,
+            message: `Password hashing error: ${e instanceof Error ? e.message : 'Unknown error'}`,
+            code: ErrorCode.UNKNOWN_ERROR
+        }
+        return c.json(response, 500)
+    }
+
+    try {
+        await db.prepare(`
+            INSERT INTO users (
+                email,
+                username,
+                password_hash,
+                role,
+                status,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+            null,
+            String(initInfo.username).trim(),
+            passwordHash,
+            'admin',
+            0,
+            now,
+            now
+        ).run()
+    } catch (e) {
+        console.error('User insertion failed:', e)
+        const response: HttpResponseJsonBody = {
+            data: null,
+            message: `Database error: ${e instanceof Error ? e.message : 'Unknown error'}`,
+            code: ErrorCode.UNKNOWN_ERROR
+        }
+        return c.json(response, 500)
+    }
 
     const host = c.req.header('host')
     if (!host) {

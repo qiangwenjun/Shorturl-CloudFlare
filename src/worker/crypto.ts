@@ -1,17 +1,19 @@
 export async function hashPassword(password: string): Promise<string> {
 	const encoder = new TextEncoder();
-	const keyMaterial = await crypto.subtle.importKey(
-		"raw",
-		encoder.encode(password),
-		{ name: "PBKDF2" },
-		false,
-		["deriveKey"]
-	);
+	const passwordBuffer = encoder.encode(password);
 
 	const salt = crypto.getRandomValues(new Uint8Array(16));
 	const saltBase64 = btoa(String.fromCharCode(...salt));
 
-	const key = await crypto.subtle.deriveKey(
+	const keyMaterial = await crypto.subtle.importKey(
+		"raw",
+		passwordBuffer,
+		{ name: "PBKDF2" },
+		false,
+		["deriveBits"]
+	);
+
+	const derivedBits = await crypto.subtle.deriveBits(
 		{
 			name: "PBKDF2",
 			salt: salt,
@@ -19,16 +21,13 @@ export async function hashPassword(password: string): Promise<string> {
 			hash: "SHA-256"
 		},
 		keyMaterial,
-		{ name: "AES-GCM", length: 256 },
-		true,
-		["encrypt", "decrypt"]
+		256
 	);
 
-	const exportedKey = await crypto.subtle.exportKey("raw", key);
-	const keyArray = new Uint8Array(exportedKey as ArrayBuffer);
-	const keyBase64 = btoa(String.fromCharCode(...keyArray));
+	const hashArray = new Uint8Array(derivedBits);
+	const hashBase64 = btoa(String.fromCharCode(...hashArray));
 
-	return `pbkdf2$100000$${saltBase64}$${keyBase64}`;
+	return `pbkdf2$100000$${saltBase64}$${hashBase64}`;
 }
 
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
@@ -45,15 +44,17 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
 		const salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
 
 		const encoder = new TextEncoder();
+		const passwordBuffer = encoder.encode(password);
+
 		const keyMaterial = await crypto.subtle.importKey(
 			"raw",
-			encoder.encode(password),
+			passwordBuffer,
 			{ name: "PBKDF2" },
 			false,
-			["deriveKey"]
+			["deriveBits"]
 		);
 
-		const key = await crypto.subtle.deriveKey(
+		const derivedBits = await crypto.subtle.deriveBits(
 			{
 				name: "PBKDF2",
 				salt: salt,
@@ -61,17 +62,15 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
 				hash: "SHA-256"
 			},
 			keyMaterial,
-			{ name: "AES-GCM", length: 256 },
-			true,
-			["encrypt", "decrypt"]
+			256
 		);
 
-		const exportedKey = await crypto.subtle.exportKey("raw", key);
-		const exportedKeyArray = new Uint8Array(exportedKey as ArrayBuffer);
-		const exportedKeyBase64 = btoa(String.fromCharCode(...exportedKeyArray));
+		const derivedArray = new Uint8Array(derivedBits);
+		const derivedBase64 = btoa(String.fromCharCode(...derivedArray));
 
-		return constantTimeCompare(exportedKeyBase64, keyBase64);
-	} catch {
+		return constantTimeCompare(derivedBase64, keyBase64);
+	} catch (e) {
+		console.error('Password verification error:', e);
 		return false;
 	}
 }
