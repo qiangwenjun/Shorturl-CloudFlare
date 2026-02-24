@@ -1,6 +1,7 @@
 
 import {Hono} from "hono";
 import {ErrorCode, HttpResponseJsonBody, Variables,CurrentUser} from "../util";
+import { hashPassword, verifyPassword } from "../crypto";
 
 // 定义类型
 interface User {
@@ -159,8 +160,7 @@ app.post('/create', async (c) => {
         const now = Math.floor(Date.now() / 1000);
 
         // 密码哈希
-        const { hash } = await import('@phc/bcrypt');
-        const passwordHash = await hash(body.password, { rounds: 10 });
+        const passwordHash = await hashPassword(body.password);
 
         // 插入新用户
         const result = await db.prepare(`
@@ -280,8 +280,7 @@ app.put('/update/:id', async (c) => {
         }
         if (body.password) {
             updates.push('password_hash = ?');
-            const { hash } = await import('@phc/bcrypt');
-            const passwordHash = await hash(body.password, { rounds: 10 });
+            const passwordHash = await hashPassword(body.password);
             params.push(passwordHash);
         }
         if (body.role !== undefined) {
@@ -602,11 +601,10 @@ app.put('/me/password', async (c) => {
         }
 
         // 验证旧密码
-        const { verify } = await import('@phc/bcrypt');
         const passwordHash = user.password_hash ?? '';
         let passwordCorrect = false;
         try {
-            passwordCorrect = await verify(passwordHash, body.oldPassword);
+            passwordCorrect = await verifyPassword(passwordHash, body.oldPassword);
         } catch {
             passwordCorrect = false;
         }
@@ -620,8 +618,7 @@ app.put('/me/password', async (c) => {
         }
 
         // 生成新密码哈希
-        const { hash } = await import('@phc/bcrypt');
-        const newPasswordHash = await hash(body.newPassword, { rounds: 10 });
+        const newPasswordHash = await hashPassword(body.newPassword);
         const now = Math.floor(Date.now() / 1000);
 
         // 更新密码

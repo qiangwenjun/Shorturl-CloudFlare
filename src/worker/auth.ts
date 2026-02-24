@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import {CurrentUser, ErrorCode, HttpResponseJsonBody, Variables} from './util'
 import {sign, verify} from 'hono/jwt'
 import { createMiddleware } from 'hono/factory'
+import { hashPassword, verifyPassword } from './crypto'
 
 
 const app = new Hono<{Bindings: Env}>()
@@ -66,8 +67,7 @@ app.post('/init', async (c) => {
 
 
     const now = Math.floor(Date.now() / 1000)
-    const { hash } = await import('@phc/bcrypt')
-    const passwordHash = await hash(String(initInfo.password), { rounds: 10 })
+    const passwordHash = await hashPassword(String(initInfo.password))
     await db.prepare(`
         INSERT INTO users (
             email,
@@ -167,8 +167,7 @@ app.post('/login', async (c) => {
     const hash = row.password_hash ?? ''
     let ok = false
     try {
-        const { verify } = await import('@phc/bcrypt')
-        ok = await verify(hash, password)
+        ok = await verifyPassword(hash, password)
     } catch {
         ok = false
     }
