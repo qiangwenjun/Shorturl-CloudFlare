@@ -195,30 +195,50 @@ export async function initializeDatabase(db: D1Database): Promise<void> {
 			return;
 		}
 	}
-	
+
 	console.log('Initializing database...');
-	
+
 	const statements = SQL_INIT.split(';').filter(s => s.trim().length > 0);
-	
+	let successCount = 0;
+	let failCount = 0;
+
 	for (const statement of statements) {
 		try {
 			await db.prepare(statement).run();
+			successCount++;
 		} catch (error) {
 			console.error('Failed to execute statement:', statement, error);
+			failCount++;
+			throw error;
 		}
 	}
-	
+
+	console.log(`Database schema created: ${successCount} statements executed, ${failCount} failed`);
+
 	const now = Math.floor(Date.now() / 1000);
-	
+	let templateSuccessCount = 0;
+
 	for (const template of TEMPLATE_DATA) {
 		try {
 			await db.prepare(
 				`INSERT INTO redirect_templates (id, name, content_type, type, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
 			).bind(template.id, template.name, 0, template.type, 1, now, now).run();
+			templateSuccessCount++;
 		} catch (error) {
 			console.error('Failed to insert template:', template.name, error);
+			throw error;
 		}
 	}
-	
+
+	console.log(`Default templates inserted: ${templateSuccessCount}/${TEMPLATE_DATA.length}`);
 	console.log('Database initialized successfully');
+
+	try {
+		const testTables = await db.prepare(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+		).all<{ name: string }>();
+		console.log('Tables in database:', testTables.results.map(t => t.name));
+	} catch (error) {
+		console.error('Failed to list tables:', error);
+	}
 }
