@@ -8,7 +8,7 @@ one click to use shorturl in cloudflare workers
 # how to
 click this button
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/qwx/shorturl-cloudflare-workers.git)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/kira-live/Shorturl-CloudFlare.git)
 
 JWT_TOKEN：at least 10 characters long and upper,lowercase, numbers, special characters.
 LANG: English uses "en" and Chinese use "cn".
